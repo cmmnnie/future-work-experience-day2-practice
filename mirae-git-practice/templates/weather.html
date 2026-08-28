@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>날씨 조회 서비스</title>
+  <!--
+    ┌──────────────────────────────────────────────────────────────────┐
+    │  7교시 실습 ⑦-2 · 날씨 조회 미니앱                               │
+    │                                                                  │
+    │  브라우저 → 강사 프록시(Dify) → OpenWeatherMap                   │
+    │  실제 날씨 키는 강사 서버에만 있고, 내 브라우저에는 없습니다.    │
+    │                                                                  │
+    │  1. 이 파일 전체를 복사해서 내 실습 저장소(my-first-repo)        │
+    │     폴더에 weather.html 로 저장하세요.                           │
+    │     (메모장이면 파일 형식을 "모든 파일"로!)                      │
+    │  2. 아래 <script> 의 API_KEY 에 강사가 알려준 키를 붙여넣습니다. │
+    │  3. 파일을 더블클릭해서 브라우저로 엽니다.                       │
+    └──────────────────────────────────────────────────────────────────┘
+  -->
+  <style>
+    :root {
+      --blue: #1A73E8;
+      --navy: #0B2447;
+      --ink: #12203A;
+      --soft: #4A5468;
+      --mute: #8A93A6;
+      --line: #E3E8EF;
+      --tint: #EEF4FE;
+      --warn: #FFF3E7;
+      --warnink: #8A3B00;
+      --ok: #0F9D58;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 40px 20px;
+      background: #fff;
+      color: var(--ink);
+      font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+      line-height: 1.6;
+    }
+
+    .app {
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 26px;
+      margin: 0 0 6px;
+    }
+
+    .sub {
+      color: var(--soft);
+      font-size: 14px;
+      margin: 0 0 22px;
+    }
+
+    /* 요청이 지나가는 길 — 지금 어디까지 갔는지 보여줍니다 */
+    .path {
+      margin-bottom: 22px;
+      padding: 12px 14px;
+      background: #F5F8FD;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: 12.5px;
+      color: var(--mute);
+    }
+
+    .chain {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .path b {
+      color: var(--soft);
+      font-weight: 600;
+    }
+
+    .path .on {
+      color: var(--blue);
+      font-weight: 700;
+    }
+
+    .path .arrow {
+      color: #C9D4E4;
+      font-weight: 700;
+    }
+
+    .note {
+      margin-top: 6px;
+      font-weight: 600;
+    }
+
+    .note.safe {
+      color: var(--ok);
+    }
+
+    .note.risk {
+      color: var(--warnink);
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+    }
+
+    input {
+      flex: 1;
+      padding: 12px 14px;
+      font-size: 16px;
+      font-family: inherit;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: var(--ink);
+    }
+
+    input:focus {
+      outline: 2px solid var(--blue);
+      outline-offset: 1px;
+      border-color: transparent;
+    }
+
+    button {
+      padding: 12px 22px;
+      font-size: 16px;
+      font-weight: 600;
+      font-family: inherit;
+      color: #fff;
+      background: var(--blue);
+      border: 0;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #145FC4;
+    }
+
+    button:disabled {
+      background: var(--mute);
+      cursor: default;
+    }
+
+    #result {
+      margin-top: 20px;
+      padding: 22px;
+      min-height: 92px;
+      background: var(--tint);
+      border-radius: 12px;
+      font-size: 19px;
+    }
+
+    #result.error {
+      background: var(--warn);
+      color: var(--warnink);
+      font-size: 15.5px;
+    }
+
+    #detail {
+      margin: 8px 0 0;
+      font-size: 14px;
+      color: var(--soft);
+    }
+
+    #result.error+#detail {
+      color: var(--warnink);
+    }
+
+    .foot {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .mode {
+      display: inline-block;
+      padding: 4px 11px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--navy);
+      color: #fff;
+    }
+
+    .mode.mock {
+      background: #B26B00;
+    }
+
+    .mode.direct {
+      background: #145FC4;
+    }
+
+    #took {
+      font-size: 12.5px;
+      color: var(--mute);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hint {
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--mute);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <h1>🌤️ 날씨 조회 서비스</h1>
+    <p class="sub">3교시에 설계한 서비스를 실제 API로 구현한 결과입니다.</p>
+
+    <div class="path">
+      <div class="chain" id="chain">
+        <b>내 브라우저</b>
+        <span class="arrow">›</span>
+        <span id="p2">강사 프록시</span>
+        <span class="arrow">›</span>
+        <span id="p3">OpenWeatherMap</span>
+      </div>
+      <div class="note" id="pnote"></div>
+    </div>
+
+    <div class="row">
+      <input id="city" value="Seoul,KR" placeholder="도시 영문명 (예: Seoul,KR)" />
+      <button id="btn">조회</button>
+    </div>
+
+    <p id="result">도시를 입력하고 조회를 누르세요.</p>
+    <p id="detail"></p>
+
+    <div class="foot">
+      <span class="mode" id="mode"></span>
+      <span id="took"></span>
+    </div>
+    <p class="hint" id="hint"></p>
+  </div>
+
+  <script>
+    // ─── 여기 한 줄만 바꾸세요 ──────────────────────────────────
+    const API_KEY = "";     // 강사가 알려준 키 (app- 으로 시작합니다)
+    // ────────────────────────────────────────────────────────────
+
+    const DIFY_URL = "https://api.dify.ai/v1/workflows/run";
+    const OPENWEATHER_URL = "https://api.openweathermap.org/data/2.5/weather";
+    const TIMEOUT_MS = 15000;   // 프록시는 직접 호출보다 느립니다. 15초까지 기다립니다
+
+    // 키가 없을 때 화면이라도 뜨도록 넣어둔 예시 응답입니다
+    const MOCK_DATA = {
+      name: "Seoul", main: { temp: 27.3, feels_like: 29.1, humidity: 60 },
+      weather: [{ description: "맑음" }]
+    };
+
+    const key = API_KEY.trim();
+    const useDify = key.startsWith("app-");   // Dify 앱 키는 app- 으로 시작합니다
+    const mockMode = key === "";
+
+    const $ = (id) => document.getElementById(id);
+
+    // 강사 대시보드에서 누가 몇 번 호출했는지 구분되도록 브라우저마다 다른 값을 보냅니다
+    const userId = (() => {
+      try {
+        let v = localStorage.getItem("weather-user");
+        if (!v) { v = "student-" + Math.random().toString(36).slice(2, 8); localStorage.setItem("weather-user", v); }
+        return v;
+      } catch (e) {
+        return "student-" + Math.random().toString(36).slice(2, 8);
+      }
+    })();
+
+    // 응답을 기다리다 영원히 멈추지 않도록 시간 제한을 겁니다
+    async function fetchWithTimeout(url, options) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+      try {
+        return await fetch(url, { ...options, signal: ctrl.signal });
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    async function getWeather() {
+      const city = $("city").value.trim();
+      const result = $("result");
+      const detail = $("detail");
+      result.className = "";
+      detail.textContent = "";
+      $("took").textContent = "";
+
+      if (!city) { result.textContent = "도시명을 입력하세요."; return; }
+      result.textContent = "불러오는 중...";
+      $("btn").disabled = true;
+      const started = Date.now();
+
+      try {
+        let data, status = 200;
+
+        if (mockMode) {
+          data = { ...MOCK_DATA, name: city };
+
+        } else if (useDify) {
+          // ── 강사 프록시(Dify) 경유 ─────────────────────────────
+          // 우리가 보내는 건 도시명 하나뿐입니다. 날씨 키는 강사 서버에 있습니다.
+          const res = await fetchWithTimeout(DIFY_URL, {
+            method: "POST",
+            headers: {
+              "Authorization": "Bearer " + key,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              inputs: { q: city },
+              response_mode: "blocking",
+              user: userId
+            })
+          });
+
+          const wrapped = await res.json().catch(() => null);
+
+          // ⓐ 프록시 자체가 거절 — 내 키가 잘못됐거나 프록시가 안 떠 있습니다
+          if (!res.ok) {
+            result.className = "error";
+            result.textContent = `프록시 오류 ${res.status} — ${(wrapped && wrapped.message) || "요청 처리 실패"}`;
+            detail.textContent = proxyAction(res.status);
+            return;
+          }
+
+          // ⓑ 프록시는 응답했지만 워크플로가 실패
+          if (!wrapped || !wrapped.data || wrapped.data.status !== "succeeded") {
+            result.className = "error";
+            result.textContent = "프록시 실행 실패 — " + ((wrapped && wrapped.data && wrapped.data.error) || "원인 불명");
+            detail.textContent = "강사에게 알려주세요. 그동안 API_KEY 를 비우면 예시 데이터로 진행할 수 있습니다.";
+            return;
+          }
+
+          // ⓒ 성공 — 껍데기를 벗기면 OpenWeather 원본 응답이 그대로 나옵니다
+          const out = wrapped.data.outputs || {};
+          status = Number(out.status_code);
+          try {
+            data = JSON.parse(out.result);
+          } catch (e) {
+            result.className = "error";
+            result.textContent = "응답을 해석할 수 없습니다.";
+            detail.textContent = "프록시가 돌려준 내용이 JSON이 아닙니다. 강사에게 알려주세요.";
+            return;
+          }
+
+        } else {
+          // ── (선택) 본인 OpenWeather 키로 직접 호출 ─────────────
+          const url = OPENWEATHER_URL
+            + "?q=" + encodeURIComponent(city)
+            + "&appid=" + key
+            + "&units=metric"    // 섭씨로 (빼면 켈빈: 300도가 나옵니다)
+            + "&lang=kr";        // 설명을 한국어로
+
+          const res = await fetchWithTimeout(url, {});
+          status = res.status;
+          data = await res.json();
+        }
+
+        // 여기서부터는 어느 경로로 왔든 똑같이 처리합니다
+        if (status !== 200) {
+          result.className = "error";
+          result.textContent = `날씨 API 오류 ${status} — ${(data && data.message) || "요청 처리 실패"}`;
+          detail.textContent = weatherAction(status);
+          return;
+        }
+
+        result.textContent =
+          `${data.name}: ${data.main.temp}°C, ${data.weather[0].description}`;
+        detail.textContent =
+          `체감 ${data.main.feels_like}°C · 습도 ${data.main.humidity}%`;
+
+      } catch (error) {
+        result.className = "error";
+        if (error.name === "AbortError") {
+          result.textContent = `${TIMEOUT_MS / 1000}초 안에 응답이 오지 않았습니다.`;
+          detail.textContent = "네트워크가 느리거나 프록시가 멈춰 있습니다. 한 번 더 눌러보고, 계속되면 손을 들어주세요.";
+        } else {
+          result.textContent = "네트워크 또는 실행 오류 — 응답을 받지 못했습니다.";
+          detail.textContent = "인터넷 연결을 확인하고, 브라우저에서 F12 → Console 탭을 열어보세요.";
+        }
+      } finally {
+        $("btn").disabled = false;
+        $("took").textContent = `${Date.now() - started}ms 걸림`;
+      }
+    }
+
+    // 프록시 층에서 난 오류 — 내 키나 강사 설정 문제입니다
+    function proxyAction(status) {
+      if (status === 401) return "강사가 알려준 키가 정확한지 확인하세요. app- 으로 시작하고 앞뒤 공백이 없어야 합니다.";
+      if (status === 404) return "프록시 주소를 찾을 수 없습니다. 강사가 앱을 게시(Publish)했는지 확인이 필요합니다.";
+      if (status === 429) return "호출이 몰렸습니다. 잠시 뒤 다시 눌러주세요.";
+      if (status >= 500) return "프록시 서버 문제입니다. 잠시 뒤 재시도하세요.";
+      return "상태 코드와 메시지를 그대로 강사에게 알려주세요.";
+    }
+
+    // 날씨 API 층에서 난 오류 — 프록시 너머에서 생긴 문제입니다
+    function weatherAction(status) {
+      if (status === 401) return "날씨 서비스 인증이 실패했습니다. 프록시 경유라면 강사 키 문제이니 알려주세요.";
+      if (status === 404) return "그런 도시가 없습니다. 영문명으로 쓰고, 동명 도시는 Seoul,KR 처럼 국가코드를 붙이세요.";
+      if (status === 429) return "날씨 서비스 호출 한도를 넘었습니다. 잠시 후 다시 시도하세요.";
+      if (status >= 500) return "날씨 서비스 쪽 문제입니다. 내 코드 문제가 아니니 잠시 후 재시도하세요.";
+      return "상태 코드와 응답 본문을 그대로 검색해 보세요.";
+    }
+
+    $("btn").addEventListener("click", getWeather);
+    $("city").addEventListener("keydown", (e) => { if (e.key === "Enter") getWeather(); });
+
+    // 현재 어떤 경로로 동작 중인지 화면에 표시합니다
+    (function showMode() {
+      const mode = $("mode");
+      if (mockMode) {
+        mode.textContent = "mock 모드 — 예시 데이터";
+        mode.className = "mode mock";
+        $("p2").textContent = "(호출 안 함)";
+        $("p3").textContent = "(호출 안 함)";
+        $("pnote").textContent = "아무 곳에도 요청을 보내지 않고 예시 데이터를 보여줍니다.";
+        $("hint").textContent = "API_KEY 가 비어 있습니다. 강사가 알려준 키를 넣으면 실제 날씨가 나옵니다.";
+      } else if (useDify) {
+        mode.textContent = "강사 프록시 경유 (Dify)";
+        mode.className = "mode";
+        $("p2").className = "on";
+        $("pnote").className = "note safe";
+        $("pnote").textContent = "🔑 실제 날씨 키는 강사 프록시 안에만 있습니다 — 내 브라우저에는 없습니다.";
+        $("hint").textContent = "Seoul,KR · Busan,KR 로 시도해 보고, 일부러 Seoool 을 넣어 404도 확인해 보세요.";
+      } else {
+        mode.textContent = "OpenWeather 직접 호출";
+        mode.className = "mode direct";
+        $("chain").innerHTML =
+          '<b>내 브라우저</b> <span class="arrow">›</span> <span class="on">OpenWeatherMap</span>';
+        $("pnote").className = "note risk";
+        $("pnote").textContent = "⚠ 내 키가 이 페이지 안에 그대로 들어 있습니다 — 소스 보기(Ctrl+U)로 확인해 보세요.";
+        $("hint").textContent = "Seoool 을 넣으면 404, 키 끝 한 글자를 지우면 401 을 재현할 수 있습니다. 커밋 전에 키를 지우세요.";
+      }
+    })();
+  </script>
+</body>
+
+</html>
